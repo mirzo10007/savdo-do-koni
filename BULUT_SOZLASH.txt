@@ -1,0 +1,28 @@
+SAVDO DO'KONI — BULUTNI (GOOGLE FIREBASE) SOZLASH
+================================================
+Bepul (Spark rejasi). Karta talab qilinmaydi. Bir marta, 10 daqiqada qilinadi.
+
+1. https://console.firebase.google.com ga Google hisobingiz bilan kiring.
+2. "Create a project" → nom bering (masalan savdo-dokoni) → Google Analytics shart emas → Create.
+3. Chap menyu: Build → Firestore Database → Create database
+   → joylashuv: eur3 (Europe) yoki europe-west → "Start in production mode" → Create.
+4. Chap menyu: Build → Authentication → Get started → Sign-in method → Email/Password → Enable → Save.
+   Keyin "Users" bo'limi → Add user → do'kon uchun email va parol yozing (masalan dokon@gmail.com).
+5. Firestore Database → Rules bo'limiga dasturdagi (Sozlamalar → Bulut → "Firestore qoidalari")
+   matnni joylang, email o'rniga 4-qadamdagi emailni yozing → Publish.
+6. Loyiha sozlamalari (tishli g'ildirak → Project settings) → "Your apps" → </> (Web) belgisi
+   → ilova nomi → Register app. Chiqqan "const firebaseConfig = { ... }" matnini to'liq nusxalang.
+
+DASTURDA ULASH
+--------------
+Asosiy kompyuterda (ma'lumotlar shu yerda):
+  Sozlamalar → "Bulut: kompyuter + telefon" → firebaseConfig, email, parol → "Bulutga ulash"
+  → "Bulutga yuklash". Birinchi yuklash 1–2 daqiqa.
+Telefonda va boshqa kompyuterlarda:
+  Xuddi shunday ulang → "Bulutdan yuklab olish". Keyin asosiy kompyuterdagi PIN-kod bilan kirasiz.
+
+ESLATMALAR
+- Internet bo'lmasa ham ishlayveradi, internet kelganda o'zi yuboradi.
+- Qoldiq ikki qurilmada bir vaqtda sotilsa ham to'g'ri hisoblanadi.
+- Telefondan chek chop etilmaydi; chek printeri kompyuterda.
+- Bepul limit: kuniga 20 000 yozuv / 50 000 o'qish — kichik do'kon uchun yetarli.

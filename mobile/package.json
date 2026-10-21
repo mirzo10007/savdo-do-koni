@@ -1,0 +1,16 @@
+{
+  "name": "savdo-dokoni-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Savdo do'koni — Android ilova (Capacitor)",
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/device": "^6.0.2",
+    "@capacitor-mlkit/barcode-scanning": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.2.0"
+  }
+}

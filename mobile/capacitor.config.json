@@ -1,0 +1,7 @@
+{
+  "appId": "uz.savdodokoni.app",
+  "appName": "Savdo do'koni",
+  "webDir": "www",
+  "android": { "allowMixedContent": false },
+  "server": { "androidScheme": "https" }
+}
