@@ -726,6 +726,16 @@ tr.click:hover td{background:#f3f7ff}
                 <div class="small" id="scRes"></div>
               </div>
             </div>
+            <div class="card owner-only">
+              <div class="card-h"><h3>Tarozi (PLU)</h3></div>
+              <div class="card-b form">
+                <p class="small muted full" style="margin:0">Kg da sotiladigan mahsulotga PLU raqami beriladi (mahsulot kartasida, bo'sh qoldirilsa o'zi beriladi). Taroziga shu PLU lar bilan mahsulotlarni yuklang: tarozidagi <b>tovar kodi = PLU</b> bo'lsin. Tarozi chiqargan yorliqni Kassada yoki Kirimda skanerlasangiz, mahsulot og'irligi bilan qo'shiladi.</p>
+                <label class="field">Yorliq prefikslari (vergul bilan)<input id="sScPre" placeholder="20,21,22,23,24,25,26,27,28,29" translate="no"></label>
+                <label class="field">Shtrix-kod tuzilishi<select id="sScFmt"><option value="5-5">PP KKKKK GGGGG N (kod 5, og'irlik 5 raqam)</option><option value="6-4">PP KKKKKK GGGG N (kod 6, og'irlik 4 raqam)</option><option value="4-6">PP KKKK GGGGGG N (kod 4, og'irlik 6 raqam)</option></select></label>
+                <div class="full row" style="gap:8px;flex-wrap:wrap"><button class="btn" id="sScSave" type="button">Saqlash</button><button class="btn" id="sPluCsv" type="button">PLU ro'yxati (CSV)</button><button class="btn" id="sPluXlsx" type="button">PLU ro'yxati (Excel)</button></div>
+                <div class="small muted full">Og'irlik grammda olinadi. Tekshirish uchun pastdagi "Skanerni sinash" maydoniga tarozi yorlig'ini skanerlang.</div>
+              </div>
+            </div>
             <div class="card">
               <div class="card-h"><h3>Ma'lumotlar shu kompyuterda</h3></div>
               <div class="card-b" style="display:grid;gap:12px">
@@ -870,6 +880,7 @@ function search(q,limit=80,list=live()){
   q=q.trim();if(!q)return list.sort((a,b)=>(b.q>0)-(a.q>0)||a.no-b.no).slice(0,limit);
   {const bq=normBc(q);if(bq.length>=4){const bx=list.filter(p=>(p.bcs||[]).includes(bq));if(bx.length)return bx}}
   if(/^\d+$/.test(q)){const ex=list.filter(p=>String(p.no)===q);if(ex.length)return ex}
+  {const m=/^plu\s*(\d+)$/i.exec(q);if(m){return list.filter(p=>pluOf(p)===Number(m[1]))}}
   const terms=fold(q).split(" ").filter(Boolean);const out=[];
   for(const p of list){const f=fp(p)+((p.bcs||[]).length?" "+p.bcs.join(" "):"");if(terms.every(t=>f.includes(t)))out.push(p)}
   return out.sort((a,b)=>(b.q>0)-(a.q>0)||a.n.localeCompare(b.n)).slice(0,limit)}
@@ -974,17 +985,17 @@ $("posSearch").addEventListener("keydown",e=>{
   if(e.key==="ArrowDown"){posSel=Math.min(posSel+1,posList.length-1);renderPosResults();e.preventDefault()}
   else if(e.key==="ArrowUp"){posSel=Math.max(posSel-1,0);renderPosResults();e.preventDefault()}
   else if(e.key==="Enter"){const v=$("posSearch").value.trim();e.preventDefault();
-    if(v&&(findByBarcode(v)||(/^\d{7,}$/.test(v)&&!posList.length))){handleScan(v,"sotuv");$("posSearch").value="";posSel=0;renderPosResults();return}
+    if(v&&(findByBarcode(v)||parseScale(v)||(/^\d{7,}$/.test(v)&&!posList.length))){handleScan(v,"sotuv");$("posSearch").value="";posSel=0;renderPosResults();return}
     if(posList[posSel]){addToCart(posList[posSel].id);$("posSearch").select()}}});
 $("posResults").addEventListener("click",e=>{const r=e.target.closest("[data-id]");if(r)addToCart(r.dataset.id)});
 function renderPosResults(){posList=search($("posSearch").value,80);
   $("posResults").innerHTML=posList.length?posList.map((p,i)=>'<div class="res'+(i===posSel?' sel':'')+(stockOf(p.id)<=0?' out':'')+'" data-id="'+p.id+'" title="'+(stockOf(p.id)<=0?"Omborda yo\'q":"")+'"><span class="idc">'+p.no+'</span><span class="nm">'+esc(p.n)+'</span><span>'+stockPill(p)+'</span><span class="pr">'+fmt(priceOf(p))+'</span><span class="add">'+ic("plus")+'</span></div>').join(""):empty("Hech narsa topilmadi","Boshqacha yozib ko'ring yoki yangi mahsulotni Ombor bo'limida qo'shing.");
   const sel=$("posResults").querySelector(".sel");if(sel)sel.scrollIntoView({block:"nearest"})}
 const stockOf=pid=>Math.max(0,Number((S.products[pid]||{}).q)||0);
-function addToCart(id){const p=S.products[id];if(!p)return;const have=stockOf(id),ex=S.cart.find(l=>l.pid===id),want=r3((ex?ex.qty:0)+1);
+function addToCart(id,add){const p=S.products[id];if(!p)return;const have=stockOf(id),ex=S.cart.find(l=>l.pid===id),want=r3((ex?ex.qty:0)+(add||1));
   if(have<=0){toast(p.n+" — omborda yo'q, sotib bo'lmaydi",true);return}
   if(want>have){toast("Omborda faqat "+fq(have)+" "+un(p)+" bor",true);return}
-  if(ex)ex.qty=want;else S.cart.push({pid:id,qty:1,price:priceOf(p)});renderCart()}
+  if(ex)ex.qty=want;else S.cart.push({pid:id,qty:want,price:priceOf(p)});renderCart()}
 function parseDisc(sub){const v=String($("disc").value||"").replace(/\s/g,"").replace(",",".");if(!v)return 0;if(v.endsWith("%"))return Math.round(sub*Math.min(100,parseFloat(v)||0)/100);return Math.min(sub,Math.max(0,parseFloat(v)||0))}
 function cartTotals(){let sub=0,cost=0;for(const l of S.cart){const p=S.products[l.pid];sub+=l.qty*l.price;cost+=l.qty*costPrice(p?p.p:0)}const disc=parseDisc(sub);return{sub,cost,disc,sum:sub-disc,profit:sub-disc-cost}}
 function renderCart(){const c=$("cart");
@@ -1146,7 +1157,7 @@ function renderStock(){const all=live();const val=all.reduce((a,p)=>a+Math.max(0
   if(f==="in")list=list.filter(p=>p.q>0);if(f==="out")list=list.filter(p=>!(p.q>0));if(f==="low")list=list.filter(p=>p.min&&p.q<=p.min);
   if(!$("stSearch").value.trim())list.sort((a,b)=>a.no-b.no);const shown=list.slice(0,300);
   $("stTable").innerHTML=shown.length?'<table><thead><tr><th class="n">№</th><th>Nomi</th>'+(own?'<th class="n">Narx</th>':'')+'<th class="n">'+(own?'Sotuv':'')+'</th><th class="n">Sotuv narxi</th><th class="n">Qoldiq</th><th class="n">Min</th>'+(own?'<th class="n">Qiymati</th>':'')+'</tr></thead><tbody>'+
-    shown.map(p=>'<tr class="click" data-pid="'+p.id+'"><td class="n idc">'+p.no+'</td><td>'+esc(p.n)+((p.bcs||[]).length?'<div class="small muted" style="font-family:var(--fc)">'+esc(p.bcs.join(", "))+'</div>':'')+'</td>'+(own?'<td class="n">'+fq(p.p)+'</td>':'')+'<td class="n">'+(own?(hasSpd(p)||hasUst(p)?'<span class="pill info" title="O\'z narxi">'+f2(saleUsd(p))+'</span>':'<span class="muted">'+f2(saleUsd(p))+'</span>'):'')+'</td><td class="n">'+fmt(priceOf(p))+'</td><td class="n">'+(INV?'<input class="qin'+(INVCH[p.id]!==undefined?' chg':'')+'" data-inv="'+p.id+'" value="'+(INVCH[p.id]!==undefined?INVCH[p.id]:(Number(p.q)||0))+'" inputmode="decimal">':stockPill(p))+'</td><td class="n muted">'+(p.min?fq(p.min):"—")+'</td>'+(own?'<td class="n muted">'+(p.q>0?fmt(p.q*p.p):"—")+'</td>':'')+'</tr>').join("")+'</tbody></table>':empty("Mos mahsulot topilmadi");
+    shown.map(p=>'<tr class="click" data-pid="'+p.id+'"><td class="n idc">'+p.no+'</td><td>'+esc(p.n)+((p.bcs||[]).length||pluOf(p)?'<div class="small muted" style="font-family:var(--fc)">'+(pluOf(p)?'PLU '+pluOf(p)+((p.bcs||[]).length?' · ':''):'')+esc((p.bcs||[]).join(", "))+'</div>':'')+'</td>'+(own?'<td class="n">'+fq(p.p)+'</td>':'')+'<td class="n">'+(own?(hasSpd(p)||hasUst(p)?'<span class="pill info" title="O\'z narxi">'+f2(saleUsd(p))+'</span>':'<span class="muted">'+f2(saleUsd(p))+'</span>'):'')+'</td><td class="n">'+fmt(priceOf(p))+'</td><td class="n">'+(INV?'<input class="qin'+(INVCH[p.id]!==undefined?' chg':'')+'" data-inv="'+p.id+'" value="'+(INVCH[p.id]!==undefined?INVCH[p.id]:(Number(p.q)||0))+'" inputmode="decimal">':stockPill(p))+'</td><td class="n muted">'+(p.min?fq(p.min):"—")+'</td>'+(own?'<td class="n muted">'+(p.q>0?fmt(p.q*p.p):"—")+'</td>':'')+'</tr>').join("")+'</tbody></table>':empty("Mos mahsulot topilmadi");
   $("invBar").innerHTML=INV?'<div class="invbar">'+ic("box")+'<span>Qoldiq kiritish rejimi: har bir mahsulotning haqiqiy sonini yozing (Tab yoki Enter bilan keyingisiga o\'ting). O\'zgargan: <b>'+Object.keys(INVCH).length+'</b> ta.</span><span class="spacer"></span><button class="btn sm" id="invCancel">Bekor</button><button class="btn sm pri" id="invSave"'+(Object.keys(INVCH).length?'':' disabled')+'>Saqlash</button></div>':'';
   $("invBtn").hidden=INV;if(INV){$("invCancel").onclick=()=>{INV=false;INVCH={};renderStock()};$("invSave").onclick=saveInv}
   $("stMore").textContent=list.length>300?"Birinchi 300 tasi ko'rsatildi, jami "+fmt(list.length)+" ta. Aniqroq qidiring.":fmt(list.length)+" ta mahsulot"}
@@ -1184,7 +1195,8 @@ function editProduct(id,after){const p=id?S.products[id]:{n:"",p:"",q:0,min:0};
   '<label class="field">Sotuv narxi, so\'m<input id="eSell" disabled value="'+fmt(priceOf(p))+'"></label><div class="small muted" id="eSellHint" style="align-self:end;padding-bottom:12px"></div>'+
   '<label class="field">Qoldiq (inventarizatsiya)<input id="eQ" type="number" step="any" value="'+esc(p.q||0)+'"></label>'+
   '<label class="field">Minimal qoldiq<input id="eMin" type="number" step="any" value="'+esc(p.min||0)+'"></label>'+
-  '<label class="field">O\'lchov birligi<select id="eUn">'+UNITS.map(u=>'<option value="'+u+'"'+(un(p)===u?' selected':'')+'>'+u+'</option>').join("")+'</select></label></div><div id="eConfirm"></div>',
+  '<label class="field">O\'lchov birligi<select id="eUn">'+UNITS.map(u=>'<option value="'+u+'"'+(un(p)===u?' selected':'')+'>'+u+'</option>').join("")+'</select></label>'+
+  '<label class="field" id="ePluL"'+(un(p)==="kg"||pluOf(p)?'':' hidden')+'>PLU (tarozi kodi)<input id="ePlu" type="number" min="1" step="1" value="'+(pluOf(p)||"")+'" placeholder="avtomatik"></label></div><div id="eConfirm"></div>',
   (id?'<button class="btn danger" id="eDel">'+ic("trash")+'O\'chirish</button>':'')+'<span class="spacer"></span><button class="btn" id="eCancel">Bekor</button><button class="btn pri" id="eSave">Saqlash</button>');
   NEWBC="";
   const bcList=()=>[...new Set($("eBc").value.split(/[,;\s]+/).map(normBc).filter(c=>c.length>=4))];
@@ -1192,12 +1204,14 @@ function editProduct(id,after){const p=id?S.products[id]:{n:"",p:"",q:0,min:0};
   $("eBc").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();const l=bcList();$("eBc").value=l.join(", ")+(l.length?", ":"");beep(true)}});
   $("eBcGen").onclick=()=>{const no=id?p.no:Math.max(0,...Object.values(S.products).map(x=>x.no||0))+1,c=internalCode(no),l=bcList();if(!l.includes(c))l.push(c);$("eBc").value=l.join(", ")};
   if($("eLbl"))$("eLbl").onclick=()=>{const l=bcList();const tmp={...p,bcs:l};let c=l.find(isEan13);if(!c){toast("Avval shtrix-kod yarating yoki EAN-13 kod kiriting",true);return}printDoc(Array.from({length:Math.max(1,Math.min(100,Number($("eLblN").value)||1))},()=>labelHtml(tmp,c)).join('<div style="border-top:1px dashed #000;margin:4mm 0"></div>'),"Yorliq",1)};
+  $("eUn").onchange=()=>{$("ePluL").hidden=$("eUn").value!=="kg"&&!$("ePlu").value};
   const eCalc=()=>{const sd=Number($("eSd").value)||0,cost=Number($("eP").value)||0,u=$("eU").value.trim();const sum=sd>0?usdToSum(sd):sellPrice(cost,u===""?null:u);$("eSell").value=fmt(sum);
     $("eSellHint").textContent=(sd>0?"O'z narxi":"Avtomatik (umumiy ustama "+fq(S.settings.ustama)+"%)")+" · ustama "+effUst(cost,sum)+"%"+(sd>0&&sd<cost?" — kelish narxidan past!":"")};$("eP").oninput=eCalc;$("eSd").oninput=eCalc;eCalc();$("eCancel").onclick=closeModal;
   $("eSave").onclick=()=>{const n=$("eN").value.trim();if(!n){toast("Mahsulot nomini kiriting",true);return}
     const codes=bcList();for(const c of codes){const o=bcOwner(c,id);if(o){toast("Shtrix-kod "+c+" allaqachon «"+o.n+"» mahsulotida",true);return}}
-    const uv=$("eU").value.trim(),body={bcs:codes,n,u:$("eUn").value,p:Number($("eP").value)||0,min:Number($("eMin").value)||0,q:Number($("eQ").value)||0,ust:uv===""?null:Number(uv)};const sdv=Number($("eSd").value)||0;body.spd=sdv>0?sdv:null;if(body.spd)body.ust=null;
-    if(id){const o=S.products[id],ch=[];if(o.n!==body.n)ch.push("nom: "+o.n+" → "+body.n);if(un(o)!==body.u)ch.push("birlik: "+un(o)+" → "+body.u);if(o.p!==body.p)ch.push("narx "+fq(o.p)+" → "+fq(body.p)+" so'm");if((o.q||0)!==body.q)ch.push("qoldiq "+fq(o.q)+" → "+fq(body.q));if((o.min||0)!==body.min)ch.push("min "+fq(o.min)+" → "+fq(body.min));if((hasUst(o)?Number(o.ust):null)!==body.ust)ch.push("ustama "+(hasUst(o)?o.ust+"%":"umumiy")+" → "+(body.ust===null?"umumiy":body.ust+"%"));if((hasSpd(o)?Number(o.spd):null)!==body.spd)ch.push("sotuv narxi "+(hasSpd(o)?f2(o.spd)+" so'm":"avtomatik")+" → "+(body.spd?f2(body.spd)+" so'm":"avtomatik"));if(JSON.stringify(o.bcs||[])!==JSON.stringify(body.bcs))ch.push("shtrix-kod: "+((o.bcs||[]).join(", ")||"yo'q")+" → "+(body.bcs.join(", ")||"yo'q"));if(ch.length)logA("Mahsulot o'zgartirildi",body.n+": "+ch.join(", "))}else logA("Yangi mahsulot",body.n+" · "+fq(body.p)+" so'm · qoldiq "+fq(body.q));
+    let plu=Math.floor(Number($("ePlu").value)||0);if(!plu&&$("eUn").value==="kg")plu=nextPlu();if(plu){const o=live().find(x=>x.id!==id&&pluOf(x)===plu);if(o){toast("PLU "+plu+" allaqachon «"+o.n+"» mahsulotida",true);return}}
+    const uv=$("eU").value.trim(),body={bcs:codes,n,u:$("eUn").value,plu:plu||null,p:Number($("eP").value)||0,min:Number($("eMin").value)||0,q:Number($("eQ").value)||0,ust:uv===""?null:Number(uv)};const sdv=Number($("eSd").value)||0;body.spd=sdv>0?sdv:null;if(body.spd)body.ust=null;
+    if(id){const o=S.products[id],ch=[];if(o.n!==body.n)ch.push("nom: "+o.n+" → "+body.n);if(un(o)!==body.u)ch.push("birlik: "+un(o)+" → "+body.u);if(pluOf(o)!==(body.plu||0))ch.push("PLU: "+(pluOf(o)||"yo'q")+" → "+(body.plu||"yo'q"));if(o.p!==body.p)ch.push("narx "+fq(o.p)+" → "+fq(body.p)+" so'm");if((o.q||0)!==body.q)ch.push("qoldiq "+fq(o.q)+" → "+fq(body.q));if((o.min||0)!==body.min)ch.push("min "+fq(o.min)+" → "+fq(body.min));if((hasUst(o)?Number(o.ust):null)!==body.ust)ch.push("ustama "+(hasUst(o)?o.ust+"%":"umumiy")+" → "+(body.ust===null?"umumiy":body.ust+"%"));if((hasSpd(o)?Number(o.spd):null)!==body.spd)ch.push("sotuv narxi "+(hasSpd(o)?f2(o.spd)+" so'm":"avtomatik")+" → "+(body.spd?f2(body.spd)+" so'm":"avtomatik"));if(JSON.stringify(o.bcs||[])!==JSON.stringify(body.bcs))ch.push("shtrix-kod: "+((o.bcs||[]).join(", ")||"yo'q")+" → "+(body.bcs.join(", ")||"yo'q"));if(ch.length)logA("Mahsulot o'zgartirildi",body.n+": "+ch.join(", "))}else logA("Yangi mahsulot",body.n+" · "+fq(body.p)+" so'm · qoldiq "+fq(body.q));
     let nid=id;if(id)Object.assign(S.products[id],body);else{const no=Math.max(0,...Object.values(S.products).map(x=>x.no||0))+1;nid=newPid(no);S.products[nid]={...body,no,id:nid}}
     persist();closeModal();renderAll();toast("Saqlandi");if(after)after(nid)};
   const del=$("eDel");if(del)del.onclick=()=>{$("eConfirm").innerHTML='<div class="confirm">'+ic("alert")+'<span>Mahsulot ro\'yxatdan olib tashlanadi, eski cheklar saqlanadi.</span><span class="spacer"></span><button class="btn danger sm" id="eDelYes">Ha, o\'chirish</button></div>';
@@ -1211,14 +1225,14 @@ $("kSearch").addEventListener("keydown",e=>{
   if(e.key==="ArrowDown"){kSel=Math.min(kSel+1,kList.length-1);renderKResults();e.preventDefault()}
   else if(e.key==="ArrowUp"){kSel=Math.max(kSel-1,0);renderKResults();e.preventDefault()}
   else if(e.key==="Enter"){const v=$("kSearch").value.trim();e.preventDefault();
-    if(v&&(findByBarcode(v)||(/^\d{7,}$/.test(v)&&!kList.length))){handleScan(v,"kirim");$("kSearch").value="";kSel=0;renderKResults();return}
+    if(v&&(findByBarcode(v)||parseScale(v)||(/^\d{7,}$/.test(v)&&!kList.length))){handleScan(v,"kirim");$("kSearch").value="";kSel=0;renderKResults();return}
     if(kList[kSel]){kAdd(kList[kSel].id);$("kSearch").select()}}});
 $("kResults").addEventListener("click",e=>{const r=e.target.closest("[data-kid]");if(r)kAdd(r.dataset.kid)});
 $("kNewProd").onclick=()=>editProduct(null,id=>kAdd(id));
 function renderKResults(){kList=search($("kSearch").value,80);
   $("kResults").innerHTML=kList.length?kList.map((p,i)=>{const inL=K.lines.find(l=>l.pid===p.id);return '<div class="res'+(i===kSel?' sel':'')+'" data-kid="'+p.id+'"><span class="idc">'+p.no+'</span><span class="nm">'+esc(p.n)+(inL?' <span class="pill info">ro\'yxatda: '+fq(inL.qty)+'</span>':'')+'</span><span>'+stockPill(p)+'</span><span class="pr">'+fmt(p.p)+' so\'m</span><span class="add">'+ic("plus")+'</span></div>'}).join(""):empty("Topilmadi","\"Yangi mahsulot\" tugmasi bilan qo'shing.");
   const sel=$("kResults").querySelector(".sel");if(sel)sel.scrollIntoView({block:"nearest"})}
-function kAdd(id){const p=S.products[id];if(!p)return;const ex=K.lines.find(l=>l.pid===id);if(ex)ex.qty=r3(ex.qty+1);else K.lines.push({pid:id,qty:1,price:p.p,mode:hasSpd(p)?"spd":null,spd:hasSpd(p)?Number(p.spd):null});renderKLines();renderKResults()}
+function kAdd(id,add){const p=S.products[id];if(!p)return;add=add||1;const ex=K.lines.find(l=>l.pid===id);if(ex)ex.qty=r3(ex.qty+add);else K.lines.push({pid:id,qty:add,price:p.p,mode:hasSpd(p)?"spd":null,spd:hasSpd(p)?Number(p.spd):null});renderKLines();renderKResults()}
 function kSale(l){const p=S.products[l.pid]||{};return l.mode==="spd"?usdToSum(l.spd):sellPrice(Number(l.price)||0,l.reset?null:p.ust)}
 function kSaleUsd(l){return l.mode==="spd"?Number(l.spd):kSale(l)/S.settings.kurs}
 function renderKLines(){
@@ -1314,8 +1328,14 @@ function renderReport(){const m=window._rm||ym();const {mov,ch,rets,days}=monthD
 
 // ================= settings & backup =================
 function renderSettings(){renderFileBox();try{renderCloudBox()}catch(e){}setSeg($("sTheme"),S.settings.theme||"auto");if(document.activeElement&&document.activeElement.closest("#p-sozlama .form"))return;const s=S.settings;
-  $("sKurs").value=s.kurs;$("sUst").value=s.ustama;$("sRound").value=String(s.round||1);$("sShop").value=s.shop||"";$("sPhone").value=s.phone||"";$("sTg").value=s.telegram||"";
+  $("sKurs").value=s.kurs;$("sScPre").value=scaleCfg().pre.join(",");$("sScFmt").value=scaleCfg().fmt;$("sUst").value=s.ustama;$("sRound").value=String(s.round||1);$("sShop").value=s.shop||"";$("sPhone").value=s.phone||"";$("sTg").value=s.telegram||"";
   setSeg($("sPaperSeg"),String(s.paper||80));setSeg($("sFontSeg"),s.pfont||"m");setSeg($("sCopySeg"),String(s.copies||1));$("sAuto").checked=s.autoPrint!==false;$("sFooter").value=s.footer??"Xaridingiz uchun rahmat!"}
+$("sScSave").addEventListener("click",()=>{const pre=$("sScPre").value.split(/[,\s]+/).filter(x=>/^\d{1,3}$/.test(x));if(!pre.length){toast("Kamida bitta prefiks kiriting, masalan 22",true);return}
+  S.settings.scPre=pre.join(",");S.settings.scFmt=$("sScFmt").value;logA("Tarozi sozlamalari",S.settings.scPre+" · "+S.settings.scFmt);persist();toast("Tarozi sozlamalari saqlandi")});
+function pluRows(){return live().filter(p=>pluOf(p)).sort((a,b)=>pluOf(a)-pluOf(b)).map(p=>({"PLU":pluOf(p),"Tovar kodi":pluOf(p),"Nomi":p.n,"Narx (1 kg), so'm":priceOf(p),"Shtrix-kod":(p.bcs||[])[0]||""}))}
+$("sPluCsv").addEventListener("click",()=>{const r=pluRows();if(!r.length){toast("PLU li mahsulot yo'q",true);return}const h=Object.keys(r[0]);const q=v=>{v=String(v);return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  download("plu-"+ymd()+".csv","\uFEFF"+[h.join(";")].concat(r.map(x=>h.map(k=>q(x[k])).join(";"))).join("\r\n"),"text/csv;charset=utf-8")});
+$("sPluXlsx").addEventListener("click",()=>{const r=pluRows();if(!r.length){toast("PLU li mahsulot yo'q",true);return}download("plu-"+ymd()+".xlsx",xlsx([["PLU",r]]))});
 bindSeg("sTheme",v=>{S.settings.theme=v;applyTheme();persist()});
 $("sSave").addEventListener("click",()=>{const old={...S.settings};Object.assign(S.settings,{kurs:1,ustama:Number($("sUst").value)||0,round:Number($("sRound").value)||1,shop:$("sShop").value.trim(),phone:$("sPhone").value.trim(),telegram:$("sTg").value.trim()});
   const ch=[];if(old.ustama!==S.settings.ustama)ch.push("ustama "+old.ustama+"% → "+S.settings.ustama+"%");if(old.round!==S.settings.round)ch.push("yaxlitlash "+old.round+" → "+S.settings.round);if(old.shop!==S.settings.shop)ch.push("do'kon nomi");if(ch.length)logA("Sozlamalar o'zgartirildi",ch.join(", "));
@@ -1573,6 +1593,13 @@ function findByBarcode(code){code=normBc(code);if(code.length<4)return null;for(
 function bcOwner(code,exceptId){for(const p of live())if(p.id!==exceptId&&(p.bcs||[]).includes(code))return p;return null}
 function ean13check(d12){let s=0;for(let i=0;i<12;i++)s+=Number(d12[i])*(i%2?3:1);return (10-s%10)%10}
 const isEan13=c=>/^\d{13}$/.test(c)&&ean13check(c.slice(0,12))===Number(c[12]);
+// Tarozi yorlig'i: EAN-13 = prefiks(2) + tovar kodi/PLU + og'irlik (gramm) + nazorat raqami
+function scaleCfg(){const s=S.settings;return{pre:String(s.scPre??"20,21,22,23,24,25,26,27,28,29").split(/[,\s]+/).filter(Boolean),fmt:s.scFmt||"5-5"}}
+function parseScale(code){code=normBc(code);if(!/^\d{13}$/.test(code))return null;const c=scaleCfg();if(!c.pre.some(x=>code.startsWith(x)))return null;
+  const [cl,wl]=c.fmt.split("-").map(Number),pl=code.length-1-cl-wl,plu=Number(code.slice(pl,pl+cl)),w=Number(code.slice(pl+cl,pl+cl+wl))/1000;
+  if(!plu||!(w>0))return null;const p=live().find(x=>Number(x.plu)===plu);return p?{p,plu,w:r3(w)}:{p:null,plu,w:r3(w)}}
+const pluOf=p=>p&&p.plu?Number(p.plu):0;
+function nextPlu(){const used=new Set(live().map(pluOf).filter(Boolean));let n=1;while(used.has(n))n++;return n}
 function internalCode(no){const d12="200"+String(no).padStart(9,"0");return d12+ean13check(d12)}
 function ensureEan(p){p.bcs=p.bcs||[];let c=p.bcs.find(isEan13);if(!c){c=internalCode(p.no);if(!p.bcs.includes(c))p.bcs.push(c);logA("Ichki shtrix-kod yaratildi",p.n+" · "+c)}return c}
 function ean13Svg(code,h){const L=["0001101","0011001","0010011","0111101","0100011","0110001","0101111","0111011","0110111","0001011"],G=["0100111","0110011","0011011","0100001","0011101","0111001","0000101","0010001","0001001","0010111"],R=L.map(x=>x.replace(/./g,b=>b==="0"?"1":"0")),P=["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG","LGGLLG","LGGGLL","LGLGLG","LGLGGL","LGGLGL"];
@@ -1585,6 +1612,8 @@ function printLabels(items){const parts=[];for(const it of items){if(!it.p)conti
 let AC=null;function beep(ok){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=ok?1600:320;o.connect(g);g.connect(AC.destination);g.gain.value=.05;o.start();o.stop(AC.currentTime+(ok?.06:.22))}catch(e){}}
 let NEWBC="";
 function handleScan(code,ctx){code=normBc(code);const p=findByBarcode(code);
+  if(!p){const sc=parseScale(code);if(sc&&sc.p){beep(true);if(ctx==="kirim")kAdd(sc.p.id,sc.w);else if(ctx==="ombor")editProduct(sc.p.id);else addToCart(sc.p.id,sc.w);return true}
+    if(sc){beep(false);toast("Tarozi yorlig'i: PLU "+sc.plu+" ("+fq(sc.w)+" kg) — bu PLU hech bir mahsulotda yo'q. Ombor → mahsulot kartasida PLU ni kiriting",true);return false}}
   if(p){beep(true);if(ctx==="kirim")kAdd(p.id);else if(ctx==="ombor")editProduct(p.id);else addToCart(p.id);return true}
   beep(false);unknownBarcode(code,ctx);return false}
 function unknownBarcode(code,ctx){if(!isOwner()){toast("Shtrix-kod topilmadi: "+code+". Ombor foydalanuvchisiga ayting",true);return}
@@ -1602,7 +1631,7 @@ document.addEventListener("keydown",e=>{if(!$("lock").hidden)return;const a=docu
   if(e.key==="Enter"){if(SC.buf.length>=4){e.preventDefault();e.stopPropagation();const code=SC.buf;SC.buf="";if($("modalRoot").innerHTML)return;const ctx={kirim:"kirim",ombor:"ombor",sotuv:"sotuv"}[curTab];if(ctx)handleScan(code,ctx)}return}
   if(e.key&&e.key.length===1)SC.buf+=e.key},true);
 // scanner test in settings
-$("scTest").addEventListener("keydown",e=>{if(e.key!=="Enter")return;e.preventDefault();const c=normBc($("scTest").value);$("scTest").value="";if(!c)return;const p=findByBarcode(c);beep(!!p);
+$("scTest").addEventListener("keydown",e=>{if(e.key!=="Enter")return;e.preventDefault();const c=normBc($("scTest").value);$("scTest").value="";if(!c)return;const p=findByBarcode(c);const sc=p?null:parseScale(c);if(sc){beep(!!sc.p);$("scRes").innerHTML=sc.p?'<span class="pill ok">Tarozi yorlig\'i</span> PLU '+sc.plu+' — <b>'+esc(sc.p.n)+'</b> · '+fq(sc.w)+' kg · '+fmt(Math.round(sc.w*priceOf(sc.p)))+" so'm":'<span class="pill low">Tarozi yorlig\'i</span> PLU '+sc.plu+' · '+fq(sc.w)+' kg — bu PLU hech bir mahsulotda yo\'q';return}beep(!!p);
   $("scRes").innerHTML=p?'<span class="pill ok">Topildi</span> '+esc(c)+' — <b>'+esc(p.n)+'</b> · '+fmt(priceOf(p))+" so'm":'<span class="pill low">Skaner ishlayapti</span> '+esc(c)+' — bu kod hali hech bir mahsulotga biriktirilmagan'});
 
 // ================= stock list printing =================
@@ -1643,7 +1672,7 @@ function stockReport(preset){const lowN=stockReportRows("low").length,outN=stock
     logA("Ro'yxat chop etildi",title+" · "+rows.length+" ta");persist();closeModal()};
   $("srXls").onclick=()=>{const rows=chosen();download((TITLE[kind]).replace(/\s+/g,"-").toLowerCase()+"-"+ymd()+".xlsx",xlsx([[TITLE[kind].slice(0,30),rows.map(p=>({"№":p.no,"Nomi":p.n,"Shtrix-kod":(p.bcs||[]).join(", "),"Qoldiq":Number(p.q)||0,"Min":p.min||0,"Kerak":Math.max(0,(p.min||0)-(Number(p.q)||0)),"Kelish narxi":p.p}))]]))}}
 // ================= Cyrillic interface layer (Uzbek Latin -> Cyrillic) =================
-const CYR_KEEP=new Set(["GM","SD","EAN","USB","CSV","JSON","Excel","Windows","Chrome","Edge","Google","Microsoft","Node","PDF","Ctrl","Enter","Tab","Esc","Shift","GMZ","Firebase","Firestore","Rules","Authentication","Email","email","firebaseConfig","apiKey","projectId","Publish","Database","GitHub","Android","APK","EXE","HTML","Releases","Project","Settings","Build","Web","app","Register","Sign","Create","Start","production","mode","Add","user","Enable"]);
+const CYR_KEEP=new Set(["GM","SD","PLU","EAN","USB","CSV","JSON","Excel","Windows","Chrome","Edge","Google","Microsoft","Node","PDF","Ctrl","Enter","Tab","Esc","Shift","GMZ","Firebase","Firestore","Rules","Authentication","Email","email","firebaseConfig","apiKey","projectId","Publish","Database","GitHub","Android","APK","EXE","HTML","Releases","Project","Settings","Build","Web","app","Register","Sign","Create","Start","production","mode","Add","user","Enable"]);
 let BRANDS=new Set();
 let UIW=null;
 function uiVocab(){const s=new Set();try{for(const sc of document.scripts){let src=sc.textContent||"";const m=/var b="([A-Za-z0-9+/=]{100,})"/.exec(src);if(m){const x=atob(m[1]),u=new Uint8Array(x.length);for(let i=0;i<x.length;i++)u[i]=x.charCodeAt(i);src=new TextDecoder().decode(u)}else if(!src.includes("function startCyr"))continue;

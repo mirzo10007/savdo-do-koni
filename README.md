@@ -5,6 +5,7 @@ Oziq-ovqat do'koni uchun sotuv va ombor dasturi. GM Zapchast dasturidan nusxa ol
 - narxlar to'g'ridan-to'g'ri so'mda (dollar kursi yo'q), umumiy ustama standart 20%, narx 100 so'mgacha yaxlitlanadi
 - har mahsulotda o'lchov birligi: dona, kg yoki litr (kasr miqdorda sotish mumkin, masalan 0,5 kg)
 - mahsulot bazasi bo'sh boshlanadi
+- tarozi (PLU): kg mahsulotlarga PLU beriladi, tarozi yorlig'idagi EAN-13 kod (prefiks + PLU + og'irlik grammda) Kassa va Kirimda og'irligi bilan o'qiladi; Sozlamalar → Tarozi bo'limida format va taroziga yuklash uchun PLU ro'yxati (CSV/Excel)
 - alohida ilova identifikatori (`uz.savdodokoni.app`) va alohida Android imzo kaliti, shuning uchun GM Zapchast bilan bir telefonda yonma-yon o'rnatiladi
 
 - `src/app.html` — dastur manbasi (bitta HTML fayl), `src/seed.json` — boshlang'ich mahsulotlar bazasi
